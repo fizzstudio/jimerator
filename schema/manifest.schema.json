@@ -1,0 +1,346 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fizz.studio/schema/manifest.schema.json",
+  "title": "Manifest",
+  "description": "The data, parameters and settings needed to present a chart in ParaCharts. @public",
+  "type": "object",
+  "properties": {
+    "datasets": {
+      "description": "The data and parameters needed to present a chart in ParaCharts.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dataset"
+      },
+      "uniqueItems": true
+    }
+  },
+  "required": [ "datasets" ],
+  "additionalProperties": false,
+  "$defs": {
+    "dataset": {
+      "description": "A set of data and parameters needed to present a chart in ParaCharts.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "The type of the chart, such as 'line' or 'column'.",
+          "enum": ["line", "stepline", "bar", "column", "lollipop", "histogram", "scatter", "heatmap", "pie", "donut", "graph"]
+        },
+        "title": {
+          "description": "The title of the chart.",
+          "$ref": "#/$defs/name"
+        },
+        "subtitle": {
+          "description": "The subtitle of the chart.",
+          "$ref": "#/$defs/name"
+        },
+        "description": {
+          "description": "A manually created description of the whole chart.",
+          "$ref": "#/$defs/name"
+        },
+        "chartTheme": {
+          "description": "What quantities the line chart displays overall. Defaults to the theme of the single series ONLY in single series charts.",
+          "$ref": "#/$defs/theme"
+        },
+        "facets": {
+          "description": "Metadata describing each facet of the chart which represents some dimension of the data.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/facet"
+          },
+          "minProperties": 1
+        },
+        "series": {
+          "description": "Metadata, and possibly inline data, describing the series of the chart.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/seriesManifest"
+          },
+          "uniqueItems": true
+        },
+        "seriesRelations": {
+          "description": "How series are related to each other in multi-series bar family charts. Defaults to 'stacked'.",
+          "enum": ["stacked", "grouped"]
+        },
+        "data": {
+          "description": "The source for the data for this dataset.",
+          "$ref": "#/$defs/data"
+        },
+        "settings": {
+          "description": "The settings needed to present a chart in ParaCharts.",
+          "$ref": "#/$defs/settings"
+        }
+      },
+      "required": ["type", "title", "facets", "series", "data"],
+      "additionalProperties": false
+    },
+    "facet": {
+      "description": "Metadata describing a facet of the chart which represents some dimension of the data.",
+      "type": "object",
+      "properties": {
+        "label": {
+          "description": "A text label for the quantity measured by this facet.",
+          "$ref": "#/$defs/name"
+        },
+        "description": {
+          "description": "An extended text description for the quantity measured by this facet.",
+          "type": "string"
+        },
+        "variableType": {
+          "description": "Whether the variable this facet measures depends on the variable measured by another facet or facets.",
+          "enum": ["dependent", "independent"]
+        },
+        "measure": {
+          "description": "The NOIR data scale of the quantity this facet measures.",
+          "enum": ["nominal", "ordinal", "interval", "ratio"]
+        },
+        "datatype": {
+          "description": "The primitive type of the data measured by this facet.",
+          "enum": ["number", "date", "string"]
+        },
+        "displayType": {
+          "description": "How this facet should be displayed on the chart",
+          "$ref": "#/$defs/displayType"
+        },
+        "units": {
+          "description": "The units for the data of this facet, in singular form, if any. This value should be absent if the facet measures a dimensionless quantity. If the units for this facet of the chart are fractional, then this is only the numerator of that fraction.",
+          "$ref": "#/$defs/name"
+        },
+        "multiplier": {
+          "description": "The number each datum of this facet must be multiplied by to get the true value. Defaults to 1.",
+          "type": "number"
+        },
+        "denominator": {
+          "description": "If the units for this facet of the chart are fractional, then this is the denominator of that fraction. For example: '(per) capita', '(per) million inhabitants'. If this property is present, then every series on the chart must measure a fractional quantity, of which this will also be the denominator.",
+          "$ref": "#/$defs/name"
+        }
+      },
+      "required": ["label", "variableType", "measure", "datatype", "displayType"],
+      "additionalProperties": false
+    },
+    "seriesManifest": {
+      "description": "Metadata, and possibly inline data, describing a series on the chart.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "A unique identifier for the series, which may have spaces, punctuation, or other non-alphanumeric characters that aren't allowed in DOM ids, but which still may not be suitable for the text label.",
+          "$ref": "#/$defs/seriesName"
+        },
+        "label": {
+          "description": "The text label for the series, which may be abbreviated or expanded from the series key. Defaults to key.",
+          "$ref": "#/$defs/seriesName"
+        },
+        "theme": {
+          "description": "What quantity the series measures.",
+          "$ref": "#/$defs/theme"
+        },
+        "records": {
+          "description": "The datapoints of this series represented inline.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/datapointManifest"
+          }
+        }
+      },
+      "required": ["key"],
+      "additionalProperties": false
+    },
+    "theme": {
+      "description": "The topic of a series or chart.",
+      "type": "object",
+      "properties": {
+        "baseQuantity": {
+          "description": "The base quantity or quantities measured by the series or chart, such as 'item price' or 'inflation rate'.",
+          "$ref": "#/$defs/nameOrNames"
+        },
+        "baseKind": {
+          "description": "What kind of base quantity this is: either a number of things (number), a quantity measured by a unit (dimensioned), a rate of change (rate), or a proportion of a whole (proportion).",
+          "enum": ["number", "dimensioned", "rate", "proportion"]
+        },
+        "locale": {
+          "description": "The particular location or locations that the quantity measured by this series or chart is limited to, if any.",
+          "$ref": "#/$defs/nameOrNames"
+        },
+        "entity": {
+          "description": "The particular entity or entities the quantity measured by this series or chart belongs to, if any.",
+          "$ref": "#/$defs/nameOrNames"
+        },
+        "items": {
+          "description": "A general term for the multiple, indefinite items the quantity measured by this series or chart belongs to, if any.",
+          "type": "string",
+          "$ref": "#/$defs/name"
+        },
+        "aggregate": {
+          "description": "The statistical aggregate or aggregates measured by this series or chart, such as 'total' or 'estimated', if any.",
+          "$ref": "#/$defs/nameOrNames"
+        }
+      },
+      "required": ["baseQuantity", "baseKind"],
+      "additionalProperties": false
+    },
+    "datapointManifest": {
+      "description": "A datapoint on the graph.",
+      "type": "object",
+      "additionalProperties": {
+        "description": "The value of the point relative to the facet labelled by this property key.",
+        "type": "string"
+      },
+      "minProperties": 1,
+      "$comment": "Additional validation: These properties must match those in `facets`."
+    },
+    "data": {
+      "description": "The source for the data of a dataset.",
+      "type": "object",
+      "properties": {
+        "source": {
+          "description": "Whether the data is inline or sourced externally.",
+          "enum": ["inline", "external"]
+        }
+      },
+      "if": {
+        "properties": {
+          "source": {
+            "const": "external"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "path": {
+            "description": "The location of the external data file.",
+            "type": "string",
+            "$comment": "Additional validation?: check path is a URL or a relative path."
+          },
+          "format": {
+            "description": "The format of the data file.",
+            "type": "string",
+            "$comment": "Additional validation?: check format is a MIME type."
+          }
+        },
+        "required": ["path", "format"]
+      },
+      "unevaluatedProperties": false,
+      "required": ["source"],
+      "tsType": "{ source: 'inline' | 'external', path?: string, format?: string }"
+    },
+    "settings": {
+      "description": "The settings needed to present a chart in ParaCharts.",
+      "type": "object",
+      "properties": {
+        "sonification": {
+          "description": "Sonification Settings",
+          "type": "object",
+          "properties": {
+            "isSoniEnabled": {
+              "description": "Whether sonification is enabled for this chart. Defaults to true.",
+              "type": "boolean"
+            }
+          }
+        },
+        "aspectRatio": {
+          "description": "The ratio of the height to the width of the chart on the screen (i.e. x-axis size / y-axis size). Defaults to 1 (i.e. a square chart).",
+          "type": "number"
+        },
+        "axis": {
+          "description": "Settings for each Axis",
+          "type": "object",
+          "properties": {
+            "x": {
+              "description": "X Axis Settings",
+              "$ref": "#/$defs/axisSettings"
+            },
+            "y": {
+              "description": "Y Axis Settings",
+              "$ref": "#/$defs/axisSettings"
+            }
+          }
+        }
+      }
+    },
+    "name": {
+      "description": "The name of something, as a non-empty string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "nameOrNames": {
+      "description": "Either the name of a single thing, as a non-empty string, or multiple things, as an array of names.",
+      "oneOf": [
+        { 
+          "$ref": "#/$defs/name"
+        },
+        {
+          "$ref": "#/$defs/multipleNames"
+        }
+      ],
+      "$comment": "`multipleNames` is necessary here because each member of oneOf must have the same type to avoid TypeScript type inference errors."
+    },
+    "multipleNames": {
+      "description": "The names of multiple things, as an array of names.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/name"
+      },
+      "$comment": "`multipleNames` is necessary for `nameOrNames` to avoid TypeScript type inference errors."
+    },    
+    "seriesName": {
+      "description": "The name of a series, as a non-empty string. This is identical to `name`, but specified for semantic reasons",
+      "$ref": "#/$defs/name"
+    },
+    "displayType": {
+      "description": "How a facet should be displayed on the graph.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "What type of chart element represents the facet.",
+          "enum": ["axis", "marking", "area", "angle"]
+        },
+        "orientation": {
+          "description": "What type of chart element represents the facet.",
+          "enum": ["horizontal", "vertical"]
+        },
+        "minDisplayed": {
+          "description": "The lowest value displayed on this axis of the chart. Defaults to zero for the dependent axis and the minimum independent value of any series for the independent axis.",
+          "type": "number"
+        },
+        "maxDisplayed": {
+          "description": "The highest value label displayed on this axis of the chart. Defaults to the maximum value of any series relative to this axis.",
+          "type": "number"
+        }
+      },
+      "required": [ "type" ],
+      "additionalProperties": false,
+      "$comment": "Additional validation: The other properties should be only those relevant to the type."
+    },
+    "axisSettings": {
+      "description": "Settings for a particular Axis",
+      "type": "object",
+      "properties": {
+        "minValue": {
+          "description": "The minimum value of the axis.",
+          "$ref": "#/$defs/axisExtremeValue"
+        },
+        "maxValue": {
+          "description": "The maximum value of the axis.",
+          "$ref": "#/$defs/axisExtremeValue"
+        }
+      }
+    },
+    "axisExtremeValue": {
+      "description": "Settings for an extreme of a particular Axis",
+      "oneOf": [
+        { "$ref": "#/$defs/number" },
+        { "$ref": "#/$defs/constUnset" }
+      ],
+      "tsType": "number | 'unset'"
+    },
+    "number": {
+      "description": "A number.",
+      "type": "number",
+      "$comment": "`number` is necessary for `axisExtremeValue` to avoid TypeScript type inference errors."
+    },
+    "constUnset": {
+      "description": "The constant 'unset'.",
+      "const": "unset",
+      "$comment": "`constUnset` is necessary for `axisExtremeValue` to avoid TypeScript type inference errors."
+    }
+  }
+}
