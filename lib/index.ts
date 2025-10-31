@@ -15,13 +15,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.*/
 
 /**
- * ParaManifest module.
- * @module @fizz/paramanifest
+ * Jimerator module.
+ * @module @fizz/jimerator
  */
 
-export * from './manifest';
-export * from './validator';
-export * from './helpers';
-export * from './chart_types';
 export { Jimerator } from './jim';
-export { inlineData } from './inliner';
