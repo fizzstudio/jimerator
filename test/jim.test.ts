@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import fs from 'node:fs';
-import { Jimerator, Manifest } from '../lib';
+import { Jimerator } from '../lib';
+import { Manifest } from '@fizz/paramanifest';
 
 const TEST_MANIFEST_DIR = './node_modules/@fizz/chart-data/data/manifests';
 
