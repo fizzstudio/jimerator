@@ -37,8 +37,7 @@
     "demo": "vite"
   },
   "files": [
-    "dist",
-    "schema"
+    "dist"
   ],
   "exports": {
     ".": "./dist/jimerator.js"
