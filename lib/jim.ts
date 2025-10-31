@@ -18,9 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.*/
 
 // Imports
 
-import { ChartType } from "./chart_types";
-import { AllSeriesData, chartDataIsOrdered, collectXs, dataFromManifest, strToId } from "./helpers";
-import { DatapointManifest, Manifest, Dataset as ManifestDataset } from "./manifest";
+import { ChartType, AllSeriesData, chartDataIsOrdered, collectXs, dataFromManifest, strToId, DatapointManifest, Manifest, Dataset as ManifestDataset } from "@fizz/paramanifest";
 
 // Types
 

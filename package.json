@@ -77,6 +77,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@fizz/paramanifest": "^0.5.9",
     "@hyperjump/json-pointer": "^1.1.0",
     "@hyperjump/json-schema": "^1.11.0",
     "json-schema-static-docs": "^0.28.1",
