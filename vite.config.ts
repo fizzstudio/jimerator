@@ -5,7 +5,7 @@ It looks like we have to specifically exclude resolved module IDs, i.e.,
 the full, absolute path to the module within node_modules. 
 */
 function matchExternal(id: string, parentId: string | undefined, isResolved: boolean) {
-  if (id.match(/lit|ui-components/)) {
+  if (id.match(/lit|ui-components|@fizz\/paramanifest/)) {
     return true;
   }
   return false;
