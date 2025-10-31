@@ -41,9 +41,9 @@
     "schema"
   ],
   "exports": {
-    ".": "./dist/Jimerator.js"
+    ".": "./dist/jimerator.js"
   },
-  "types": "./dist/Jimerator.d.ts",
+  "types": "./types/index.d.ts",
   "devDependencies": {
     "@fizz/chart-data": "^2.2.2",
     "@storybook/addon-coverage": "^1.0.5",
