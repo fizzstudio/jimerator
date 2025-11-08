@@ -90,7 +90,9 @@ export class JimError extends Error {
 }
 
 // * Main Class *
-
+/**
+ * @public
+ */
 export class Jimerator {
 
   private _jim!: Jim;
