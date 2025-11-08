@@ -1,4 +1,4 @@
-/* ParaManifest: Jimerator
+/* Jimerator
 Copyright (C) 2025 Fizz Studios
 
 This program is free software: you can redistribute it and/or modify
@@ -53,6 +53,7 @@ export interface Series {
   name: string;
   type: SeriesType;
   records: DatapointManifest[];
+  description?: string;
 }
 
 export interface Href {
@@ -180,6 +181,22 @@ export class Jimerator {
       datasets: [dataset], 
       selectors,
       version: { jim: '0.4.0' }
+    };
+  }
+
+  public addSeriesSummary(seriesKey: string, summary: string) {
+    if (!this._jim) {
+      throw new JimError('JIM must be rendered before adding series summary');
+    }
+    const seriesIndex = this._seriesKeys.indexOf(seriesKey);
+    if (seriesIndex === -1) {
+      throw new JimError(`Series key "${seriesKey}" not found`);
+    }
+    this._jim.datasets[0].series[seriesIndex].description = summary;
+    const selectorKey = `seriesSummary_${strToId(seriesKey)}`;
+    this._jim.selectors[selectorKey] = {
+      dom: `#series-summary-${strToId(seriesKey)}`,
+      json: `$.datasets[0].series[${seriesIndex}].description`
     };
   }
 
