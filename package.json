@@ -1,6 +1,6 @@
 {
   "name": "@fizz/jimerator",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "JIM (JSON for Interactive Media) generator from ParaManifest datasets",
   "contributors": [
     "Simon Varey",
