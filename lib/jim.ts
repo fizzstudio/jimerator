@@ -197,7 +197,7 @@ export class Jimerator {
     this._jim.datasets[0].series[seriesIndex].description = summary;
     const selectorKey = `seriesSummary_${strToId(seriesKey)}`;
     this._jim.selectors[selectorKey] = {
-      dom: `#series-summary-${strToId(seriesKey)}`,
+      dom: `#series-${strToId(seriesKey)}`,
       json: `$.datasets[0].series[${seriesIndex}].description`
     };
   }
