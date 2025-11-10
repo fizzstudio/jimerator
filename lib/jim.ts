@@ -224,7 +224,7 @@ export class Jimerator {
         },
         details: {
           announcement: {
-            path: "$.dataSets[0].series[seriesIndex].description"
+            path: "$.dataSets[0].series[${seriesIndex}].description"
           }
         }
       });
