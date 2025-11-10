@@ -25,6 +25,7 @@ import { ChartType, AllSeriesData, chartDataIsOrdered, collectXs, dataFromManife
 export interface Jim {
   datasets: Dataset[];
   selectors: Record<string, Selector>;
+  behaviors: any[];
   version: { jim: string };
 }
 
@@ -179,9 +180,11 @@ export class Jimerator {
       records: this._data[aSeries.key]
     }));
     const selectors = this._renderSelectors();
+    const behaviors = this._renderBehaviors();
     this._jim = { 
       datasets: [dataset], 
       selectors,
+      behaviors,
       version: { jim: '0.4.0' }
     };
   }
@@ -200,6 +203,33 @@ export class Jimerator {
       dom: `#series-${strToId(seriesKey)}`,
       json: `$.datasets[0].series[${seriesIndex}].description`
     };
+  }
+
+  private _renderBehaviors(): any[] {
+    const behaviors: any[] = [];
+    this._seriesKeys.forEach((seriesKey, seriesIndex) => {
+      behaviors.push({
+        target: {
+          selector: `$.selectors.seriesSummary_${seriesKey}`
+        },
+        enter: {
+          haptic: {
+            durations: [0, 125, 125, 125, 125, 125, 125, 125],
+            repeatInterval: 125
+          },
+          audio: {
+            earcon: "PewPew",
+            repeat: "none"
+          }
+        },
+        details: {
+          announcement: {
+            path: "$.dataSets[0].series[seriesIndex].description"
+          }
+        }
+      });
+    });
+    return behaviors;
   }
 
 }
