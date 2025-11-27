@@ -68,6 +68,6 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@fizz/paramanifest": "^0.5.9"
+    "@fizz/paramanifest": "^0.7.0"
   }
 }
