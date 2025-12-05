@@ -44,7 +44,7 @@
   },
   "types": "./dist/jimerator.d.ts",
   "devDependencies": {
-    "@fizz/chart-data": "^2.2.2",
+    "@fizz/chart-data": "^2.2.7",
     "@microsoft/api-extractor": "^7.53.3",
     "@storybook/addon-coverage": "^1.0.5",
     "@storybook/addon-essentials": "^8.4.7",
@@ -68,6 +68,6 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@fizz/paramanifest": "^0.5.9"
+    "@fizz/paramanifest": "^0.8.0"
   }
 }

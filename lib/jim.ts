@@ -75,6 +75,7 @@ const CHART_TYPE_MAP: Record<ChartType, SeriesType> = {
   column: 'column',
   lollipop: 'column',
   histogram: 'column',
+  waterfall: 'column',
   line: 'line',
   stepline: 'line',
   graph: 'line',
