@@ -18,7 +18,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.*/
 
 // Imports
 
-import { ChartType, AllSeriesData, chartDataIsOrdered, collectXs, dataFromManifest, strToId, DatapointManifest, Manifest, Dataset as ManifestDataset } from "@fizz/paramanifest";
+import { ChartType, AllSeriesData, dataFromManifest, strToId, DatapointManifest, Manifest, 
+  Dataset as ManifestDataset } from "@fizz/paramanifest";
+import { chartDataIsUnivalent, collectIndeps } from "./utils";
 
 // Types
 
@@ -102,9 +104,17 @@ export class Jimerator {
   private _dataset: ManifestDataset;
   private _data: AllSeriesData;
   private _seriesKeys: string[];
+  private _indepKey: string;
+  private _depKey: string;
 
   constructor(private _manifest: Manifest, externalData?: AllSeriesData) {
     this._dataset = this._manifest.datasets[0];
+    this._indepKey = Object.entries(this._dataset.facets)
+      .filter(([_key, facet]) => facet.variableType === 'independent')
+      .map(([key, _facet]) => key)[0]; // Assumes exactly 1 independent key
+    this._depKey = Object.entries(this._dataset.facets)
+      .filter(([_key, facet]) => facet.variableType === 'dependent')
+      .map(([key, _facet]) => key)[0]; // Assumes exactly 1 dependent key
     if (this._dataset.data.source === 'inline') {
       this._data = dataFromManifest(this._manifest);
     } else if (externalData) {
@@ -119,14 +129,14 @@ export class Jimerator {
     return this._jim;
   }
 
-  private _addSelectorsOrdered(selectors: Record<string, Selector>): void {
+  private _addSelectorsUnivalent(selectors: Record<string, Selector>): void {
     let datapointIndex = 1;
     // FIXME: Assumes at least 1 series in data
-    const xs = collectXs(this._data[this._seriesKeys[0]]);
+    const indeps = collectIndeps(this._data[this._seriesKeys[0]], this._indepKey);
     this._seriesKeys.forEach((key, seriesIndex) => {
-      xs.forEach((x, pointIndex) => {
+      indeps.forEach((indepValue, pointIndex) => {
         selectors[`datapoint${datapointIndex}`] = {
-          "dom": `#datapoint-${strToId(x)}_${strToId(key)}`,
+          "dom": `#datapoint-${strToId(indepValue)}_${strToId(key)}`,
           "json": [
             `$.datasets[0].series[${seriesIndex}].name`,
             `$.datasets[0].series[${seriesIndex}].records[${pointIndex}].*`
@@ -137,14 +147,14 @@ export class Jimerator {
     });
   }
 
-  private _addSelectorsUnordered(selectors: Record<string, Selector>): void {
+  private _addSelectorsMultivalent(selectors: Record<string, Selector>): void {
     let datapointIndex = 1;
     Object.keys(this._data).forEach((key, seriesIndex) => {
       this._data[key].forEach((datapoint, pointIndex) => {
-        const xSanitized = strToId(datapoint.x);
-        const ySanitized = strToId(datapoint.y);
+        const indepSanitized = strToId(datapoint[this._indepKey]);
+        const depSanitized = strToId(datapoint[this._depKey]);
         selectors[`datapoint${datapointIndex}`] = {
-          dom: `#datapoint-${xSanitized}_${ySanitized}_${strToId(key)}`,
+          dom: `#datapoint-${indepSanitized}_${depSanitized}_${strToId(key)}`,
           json: [
             `$.datasets[0].series[${seriesIndex}].name`,
             `$.datasets[0].series[${seriesIndex}].records[${pointIndex}].*`
@@ -162,10 +172,10 @@ export class Jimerator {
         json: "$.datasets[0].title"
       }
     }
-    if (chartDataIsOrdered(this._data)) {
-      this._addSelectorsOrdered(selectors);
+    if (chartDataIsUnivalent(this._data, this._indepKey)) {
+      this._addSelectorsUnivalent(selectors);
     } else {
-      this._addSelectorsUnordered(selectors);
+      this._addSelectorsMultivalent(selectors);
     }
     return selectors;
   }
