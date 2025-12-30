@@ -50,11 +50,8 @@ export interface Facet {
   variableType?: 'independent' | 'dependent';
 }
 
-type SeriesType = 'row' | 'column' | 'line' | 'other';
-
 export interface Series {
   name: string;
-  type: SeriesType;
   records: DatapointManifest[];
   description?: string;
 }
@@ -71,22 +68,6 @@ export interface Selector {
 }
 
 // Helpers
-
-const CHART_TYPE_MAP: Record<ChartType, SeriesType> = {
-  bar: 'column',
-  column: 'column',
-  lollipop: 'column',
-  histogram: 'column',
-  waterfall: 'column',
-  line: 'line',
-  stepline: 'line',
-  graph: 'line',
-  scatter: 'other',
-  heatmap: 'other',
-  pie: 'other',
-  donut: 'other',
-  venn: 'other'
-}
 
 export class JimError extends Error {
   constructor(msg: string) {
@@ -188,7 +169,6 @@ export class Jimerator {
     };
     dataset.series = this._dataset.series.map((aSeries) => ({
       name: aSeries.key,
-      type: CHART_TYPE_MAP[this._dataset.type],
       records: this._data[aSeries.key]
     }));
     const selectors = this._renderSelectors();
