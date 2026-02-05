@@ -24,13 +24,19 @@ import { chartDataIsUnivalent, collectIndeps } from "./utils";
 
 // Types
 
-export interface Jim {
+/**
+ * @public
+ */
+export interface JIM {
   datasets: Dataset[];
   selectors: Record<string, Selector>;
   behaviors: any[];
   version: { jim: string };
 }
 
+/**
+ * @public
+ */
 export interface Dataset {
   title: string;
   subtitle?: string;
@@ -40,28 +46,43 @@ export interface Dataset {
   href?: Href;
 }
 
+/**
+ * @public
+ */
 export interface Source {
   url: string;
   name: string;
 }
 
+/**
+ * @public
+ */
 export interface Facet {
   label: string;
   variableType?: 'independent' | 'dependent';
 }
 
+/**
+ * @public
+ */
 export interface Series {
   name: string;
   records: DatapointManifest[];
   description?: string;
 }
 
+/**
+ * @public
+ */
 export interface Href {
   url: string;
   format: 'csv' | 'json';
   type: 'extendedDataset';
 }
 
+/**
+ * @public
+ */
 export interface Selector {
   dom: string | string[];
   json: string | string[];
@@ -81,7 +102,7 @@ export class JimError extends Error {
  */
 export class Jimerator {
 
-  private _jim!: Jim;
+  private _jim!: JIM;
   private _dataset: ManifestDataset;
   private _data: AllSeriesData;
   private _seriesKeys: string[];
