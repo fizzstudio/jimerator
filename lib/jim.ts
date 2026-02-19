@@ -223,7 +223,7 @@ export class Jimerator {
     this._seriesKeys.forEach((seriesKey, seriesIndex) => {
       behaviors.push({
         target: {
-          selector: `$.selectors.seriesSummary_${seriesKey}`
+          selector: `$.selectors.seriesSummary_${strToId(seriesKey)}`
         },
         enter: {
           haptic: {
