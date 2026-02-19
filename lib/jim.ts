@@ -1,5 +1,5 @@
 /* Jimerator
-Copyright (C) 2025 Fizz Studios
+Copyright (C) 2025 Fizz Studio
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -18,8 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.*/
 
 // Imports
 
-import { ChartType, AllSeriesData, dataFromManifest, strToId, DatapointManifest, Manifest, 
-  Dataset as ManifestDataset } from "@fizz/paramanifest";
+import { ChartType, AllSeriesData, strToId, DatapointManifest, JIMManifest, 
+  Dataset as ManifestDataset, isPastryType } from "@fizz/paramanifest";
 import { chartDataIsUnivalent, collectIndeps } from "./utils";
 
 // Types
@@ -109,7 +109,7 @@ export class Jimerator {
   private _indepKey: string;
   private _depKey: string;
 
-  constructor(private _manifest: Manifest, externalData?: AllSeriesData) {
+  constructor(private _manifest: JIMManifest, externalData?: AllSeriesData) {
     this._dataset = this._manifest.datasets[0];
     this._indepKey = Object.entries(this._dataset.facets)
       .filter(([_key, facet]) => facet.variableType === 'independent')
@@ -117,8 +117,12 @@ export class Jimerator {
     this._depKey = Object.entries(this._dataset.facets)
       .filter(([_key, facet]) => facet.variableType === 'dependent')
       .map(([key, _facet]) => key)[0]; // Assumes exactly 1 dependent key
-    if (this._dataset.data.source === 'inline') {
-      this._data = dataFromManifest(this._manifest);
+    if (!this._dataset.href) {
+      const data: AllSeriesData = {};
+      for (const series of this._dataset.series) {
+        data[series.key] = series.records!;
+      }
+      this._data = data;
     } else if (externalData) {
       this._data = externalData;
     } else {
@@ -202,6 +206,13 @@ export class Jimerator {
     };
   }
 
+  public addSliceSummary(sliceIndex: number, summary: string) {
+    if (!this._jim) {
+      throw new JimError('JIM must be rendered before adding slice summary');
+    }
+    this._jim.datasets[0].series[0].records[sliceIndex].description = summary;
+  }
+
   public addSeriesSummary(seriesKey: string, summary: string) {
     if (!this._jim) {
       throw new JimError('JIM must be rendered before adding series summary');
@@ -220,28 +231,54 @@ export class Jimerator {
 
   private _renderBehaviors(): any[] {
     const behaviors: any[] = [];
-    this._seriesKeys.forEach((seriesKey, seriesIndex) => {
-      behaviors.push({
-        target: {
-          selector: `$.selectors.seriesSummary_${strToId(seriesKey)}`
-        },
-        enter: {
-          haptic: {
-            durations: [0, 125, 125, 125, 125, 125, 125, 125],
-            repeatInterval: 125
+    if (isPastryType(this._manifest.datasets[0].representation.subtype)) {
+      const slices = this._data[this._seriesKeys[0]];
+      slices.forEach((_slice, sliceIndex) => {
+        behaviors.push({
+          target: {
+            selector: `$.selectors.datapoint${sliceIndex + 1}`
           },
-          audio: {
-            earcon: "PewPew",
-            repeat: "none"
+          enter: {
+            haptic: {
+              durations: [0, 125, 125, 125, 125, 125, 125, 125],
+              repeatInterval: 125
+            },
+            audio: {
+              earcon: "PewPew",
+              repeat: "none"
+            }
+          },
+          details: {
+            announcement: {
+              path: `$.datasets[0].series[0].records[${sliceIndex}].description`
+            }
           }
-        },
-        details: {
-          announcement: {
-            path: `$.datasets[0].series[${seriesIndex}].description`
-          }
-        }
+        });
       });
-    });
+    } else {
+      this._seriesKeys.forEach((seriesKey, seriesIndex) => {
+        behaviors.push({
+          target: {
+            selector: `$.selectors.seriesSummary_${strToId(seriesKey)}`
+          },
+          enter: {
+            haptic: {
+              durations: [0, 125, 125, 125, 125, 125, 125, 125],
+              repeatInterval: 125
+            },
+            audio: {
+              earcon: "PewPew",
+              repeat: "none"
+            }
+          },
+          details: {
+            announcement: {
+              path: `$.datasets[0].series[${seriesIndex}].description`
+            }
+          }
+        });
+      });
+    }
     return behaviors;
   }
 
