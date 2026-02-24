@@ -211,6 +211,13 @@ export class Jimerator {
       throw new JimError('JIM must be rendered before adding slice summary');
     }
     this._jim.datasets[0].series[0].records[sliceIndex].description = summary;
+    const selectorKey = `slice${sliceIndex + 1}`;
+    const datapointSelector = this._jim.selectors[`datapoint${sliceIndex + 1}`];
+    this._jim.selectors[selectorKey] = {
+      dom: datapointSelector.dom,
+      json: `$.datasets[0].series[0].records[${sliceIndex}].description`
+    };
+    this._jim.behaviors[sliceIndex].announcement = { name: summary };
   }
 
   public addSeriesSummary(seriesKey: string, summary: string) {
@@ -227,6 +234,7 @@ export class Jimerator {
       dom: `#series-${strToId(seriesKey)}`,
       json: `$.datasets[0].series[${seriesIndex}].description`
     };
+    this._jim.behaviors[seriesIndex].announcement = { description: summary };
   }
 
   private _renderBehaviors(): any[] {
@@ -236,7 +244,7 @@ export class Jimerator {
       slices.forEach((_slice, sliceIndex) => {
         behaviors.push({
           target: {
-            selector: `$.selectors.datapoint${sliceIndex + 1}`
+            selector: `$.selectors.slice${sliceIndex + 1}`
           },
           enter: {
             haptic: {
@@ -246,11 +254,6 @@ export class Jimerator {
             audio: {
               earcon: "PewPew",
               repeat: "none"
-            }
-          },
-          details: {
-            announcement: {
-              path: `$.datasets[0].series[0].records[${sliceIndex}].description`
             }
           }
         });
@@ -269,11 +272,6 @@ export class Jimerator {
             audio: {
               earcon: "PewPew",
               repeat: "none"
-            }
-          },
-          details: {
-            announcement: {
-              path: `$.datasets[0].series[${seriesIndex}].description`
             }
           }
         });
