@@ -135,6 +135,18 @@ export class Jimerator {
     return this._jim;
   }
 
+  private _addSelectorsPastry(selectors: Record<string, Selector>): void {
+    const seriesKey = this._seriesKeys[0];
+    this._data[seriesKey].forEach((datapoint, pointIndex) => {
+      const indepSanitized = strToId(datapoint[this._indepKey]);
+      const depSanitized = strToId(datapoint[this._depKey]);
+      selectors[`datapoint${pointIndex + 1}`] = {
+        dom: `#datapoint-${indepSanitized}_${depSanitized}_${strToId(seriesKey)}`,
+        json: `$.datasets[0].series[0].records[${pointIndex}].description`
+      };
+    });
+  }
+
   private _addSelectorsUnivalent(selectors: Record<string, Selector>): void {
     let datapointIndex = 1;
     // FIXME: Assumes at least 1 series in data
@@ -178,7 +190,9 @@ export class Jimerator {
         json: "$.datasets[0].title"
       }
     }
-    if (chartDataIsUnivalent(this._data, this._indepKey)) {
+    if (isPastryType(this._manifest.datasets[0].representation.subtype)) {
+      this._addSelectorsPastry(selectors);
+    } else if (chartDataIsUnivalent(this._data, this._indepKey)) {
       this._addSelectorsUnivalent(selectors);
     } else {
       this._addSelectorsMultivalent(selectors);
@@ -211,13 +225,6 @@ export class Jimerator {
       throw new JimError('JIM must be rendered before adding slice summary');
     }
     this._jim.datasets[0].series[0].records[sliceIndex].description = summary;
-    const selectorKey = `slice${sliceIndex + 1}`;
-    const datapointSelector = this._jim.selectors[`datapoint${sliceIndex + 1}`];
-    this._jim.selectors[selectorKey] = {
-      dom: datapointSelector.dom,
-      json: `$.datasets[0].series[0].records[${sliceIndex}].description`
-    };
-    this._jim.behaviors[sliceIndex].announcement = { name: summary };
   }
 
   public addSeriesSummary(seriesKey: string, summary: string) {
@@ -234,7 +241,6 @@ export class Jimerator {
       dom: `#series-${strToId(seriesKey)}`,
       json: `$.datasets[0].series[${seriesIndex}].description`
     };
-    this._jim.behaviors[seriesIndex].announcement = { description: summary };
   }
 
   private _renderBehaviors(): any[] {
@@ -244,7 +250,7 @@ export class Jimerator {
       slices.forEach((_slice, sliceIndex) => {
         behaviors.push({
           target: {
-            selector: `$.selectors.slice${sliceIndex + 1}`
+            selector: `$.selectors.datapoint${sliceIndex + 1}`
           },
           enter: {
             haptic: {
