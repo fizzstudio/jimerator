@@ -19,4 +19,4 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.*/
  * @module @fizz/jimerator
  */
 
-export { Jimerator, type JIM, type Dataset, type Selector, type Source, type Facet, type Series, type Href } from './jim';
+export { Jimerator, type Selector } from './jim';
