@@ -1,6 +1,6 @@
 {
   "name": "@fizz/jimerator",
-  "version": "0.16.1",
+  "version": "0.17.0",
   "description": "JIM (JSON Image Metadata) generator",
   "contributors": [
     "Simon Varey",
