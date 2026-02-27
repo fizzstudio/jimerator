@@ -18,67 +18,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.*/
 
 // Imports
 
-import { ChartType, AllSeriesData, strToId, DatapointManifest, JIMManifest, 
-  Dataset as ManifestDataset, isPastryType } from "@fizz/paramanifest";
+import { AllSeriesData, strToId, Manifest,
+  isPastryType } from "@fizz/paramanifest";
 import { chartDataIsUnivalent, collectIndeps } from "./utils";
 
 // Types
-
-/**
- * @public
- */
-export interface JIM {
-  datasets: Dataset[];
-  selectors: Record<string, Selector>;
-  behaviors: any[];
-  version: { jim: string };
-}
-
-/**
- * @public
- */
-export interface Dataset {
-  title: string;
-  subtitle?: string;
-  source?: Source;
-  facets: {[key: string]: Facet};
-  series: Series[];
-  href?: Href;
-}
-
-/**
- * @public
- */
-export interface Source {
-  url: string;
-  name: string;
-}
-
-/**
- * @public
- */
-export interface Facet {
-  label: string;
-  variableType?: 'independent' | 'dependent';
-}
-
-/**
- * @public
- */
-export interface Series {
-  name: string;
-  records: DatapointManifest[];
-  description?: string;
-}
-
-/**
- * @public
- */
-export interface Href {
-  url: string;
-  format: 'csv' | 'json';
-  type: 'extendedDataset';
-}
 
 /**
  * @public
@@ -102,47 +46,50 @@ export class JimError extends Error {
  */
 export class Jimerator {
 
-  private _jim!: JIM;
-  private _dataset: ManifestDataset;
+  private _manifest: Manifest;
   private _data: AllSeriesData;
-  private _seriesKeys: string[];
   private _indepKey: string;
   private _depKey: string;
 
-  constructor(private _manifest: JIMManifest, externalData?: AllSeriesData) {
-    this._dataset = this._manifest.datasets[0];
-    this._indepKey = Object.entries(this._dataset.facets)
+  constructor(manifest: Manifest, externalData?: AllSeriesData) {
+    this._manifest = manifest;
+    const dataset = this._manifest.jim.datasets[0];
+    this._indepKey = Object.entries(dataset.facets)
       .filter(([_key, facet]) => facet.variableType === 'independent')
-      .map(([key, _facet]) => key)[0]; // Assumes exactly 1 independent key
-    this._depKey = Object.entries(this._dataset.facets)
+      .map(([key, _facet]) => key)[0]; // Assumes exactly 1 independent facet
+    this._depKey = Object.entries(dataset.facets)
       .filter(([_key, facet]) => facet.variableType === 'dependent')
-      .map(([key, _facet]) => key)[0]; // Assumes exactly 1 dependent key
-    if (!this._dataset.href) {
-      const data: AllSeriesData = {};
-      for (const series of this._dataset.series) {
-        data[series.key] = series.records!;
+      .map(([key, _facet]) => key)[0]; // Assumes exactly 1 dependent facet
+    if (this._indepKey === undefined || this._depKey === undefined) {
+      throw new JimError('Manifest must have exactly one independent and one dependent facet');
+    }
+    if (!dataset.href) {
+      this._data = {};
+      for (const series of dataset.series) {
+        this._data[series.key] = series.records!;
       }
-      this._data = data;
     } else if (externalData) {
       this._data = externalData;
     } else {
       throw new JimError('JIM cannot be created without external or inline chart data');
     }
-    this._seriesKeys = Object.keys(this._data);
+    (this._manifest.jim as any).selectors = this._renderSelectors();
+    (this._manifest.jim as any).behaviors = this._renderBehaviors();
+    (this._manifest.jim as any).version = { jim: '0.4.0' };
   }
 
-  get jim() {
-    return this._jim;
+  get manifest() {
+    return this._manifest;
   }
 
   private _addSelectorsPastry(selectors: Record<string, Selector>): void {
-    const seriesKey = this._seriesKeys[0];
+    const seriesKey = Object.keys(this._data)[0];
     this._data[seriesKey].forEach((datapoint, pointIndex) => {
       const indepSanitized = strToId(datapoint[this._indepKey]);
       const depSanitized = strToId(datapoint[this._depKey]);
       selectors[`datapoint${pointIndex + 1}`] = {
         dom: `#datapoint-${indepSanitized}_${depSanitized}_${strToId(seriesKey)}`,
-        json: `$.datasets[0].series[0].records[${pointIndex}].description`
+        json: `$.jim.datasets[0].series[0].records[${pointIndex}].description`
       };
     });
   }
@@ -150,14 +97,14 @@ export class Jimerator {
   private _addSelectorsUnivalent(selectors: Record<string, Selector>): void {
     let datapointIndex = 1;
     // FIXME: Assumes at least 1 series in data
-    const indeps = collectIndeps(this._data[this._seriesKeys[0]], this._indepKey);
-    this._seriesKeys.forEach((key, seriesIndex) => {
+    const indeps = collectIndeps(this._data[Object.keys(this._data)[0]], this._indepKey);
+    Object.keys(this._data).forEach((key, seriesIndex) => {
       indeps.forEach((indepValue, pointIndex) => {
         selectors[`datapoint${datapointIndex}`] = {
           "dom": `#datapoint-${strToId(indepValue)}_${strToId(key)}`,
           "json": [
-            `$.datasets[0].series[${seriesIndex}].name`,
-            `$.datasets[0].series[${seriesIndex}].records[${pointIndex}].*`
+            `$.jim.datasets[0].series[${seriesIndex}].key`,
+            `$.jim.datasets[0].series[${seriesIndex}].records[${pointIndex}].*`
           ]
         };
         datapointIndex++;
@@ -174,8 +121,8 @@ export class Jimerator {
         selectors[`datapoint${datapointIndex}`] = {
           dom: `#datapoint-${indepSanitized}_${depSanitized}_${strToId(key)}`,
           json: [
-            `$.datasets[0].series[${seriesIndex}].name`,
-            `$.datasets[0].series[${seriesIndex}].records[${pointIndex}].*`
+            `$.jim.datasets[0].series[${seriesIndex}].key`,
+            `$.jim.datasets[0].series[${seriesIndex}].records[${pointIndex}].*`
           ]
         };
         datapointIndex++;
@@ -187,10 +134,10 @@ export class Jimerator {
     const selectors: Record<string, Selector> = {
       chartTitle: {
         dom: "#chart-title",
-        json: "$.datasets[0].title"
+        json: "$.jim.datasets[0].title"
       }
     }
-    if (isPastryType(this._manifest.datasets[0].representation.subtype)) {
+    if (isPastryType(this._manifest.jim.datasets[0].representation.subtype)) {
       this._addSelectorsPastry(selectors);
     } else if (chartDataIsUnivalent(this._data, this._indepKey)) {
       this._addSelectorsUnivalent(selectors);
@@ -200,53 +147,27 @@ export class Jimerator {
     return selectors;
   }
 
-  public render() {
-    const dataset: Dataset = {
-      title: this._dataset.title,
-      facets: this._dataset.facets,
-      series: []
-    };
-    dataset.series = this._dataset.series.map((aSeries) => ({
-      name: aSeries.key,
-      records: this._data[aSeries.key]
-    }));
-    const selectors = this._renderSelectors();
-    const behaviors = this._renderBehaviors();
-    this._jim = { 
-      datasets: [dataset], 
-      selectors,
-      behaviors,
-      version: { jim: '0.4.0' }
-    };
-  }
-
   public addSliceSummary(sliceIndex: number, summary: string) {
-    if (!this._jim) {
-      throw new JimError('JIM must be rendered before adding slice summary');
-    }
-    this._jim.datasets[0].series[0].records[sliceIndex].description = summary;
+    this._manifest.jim.datasets[0].series[0].records![sliceIndex].description = summary;
   }
 
   public addSeriesSummary(seriesKey: string, summary: string) {
-    if (!this._jim) {
-      throw new JimError('JIM must be rendered before adding series summary');
-    }
-    const seriesIndex = this._seriesKeys.indexOf(seriesKey);
+    const seriesIndex = this._manifest.jim.datasets[0].series.findIndex(s => s.key === seriesKey);
     if (seriesIndex === -1) {
       throw new JimError(`Series key "${seriesKey}" not found`);
     }
-    this._jim.datasets[0].series[seriesIndex].description = summary;
+    (this._manifest.jim.datasets[0].series[seriesIndex] as any).description = summary;
     const selectorKey = `seriesSummary_${strToId(seriesKey)}`;
-    this._jim.selectors[selectorKey] = {
+    (this._manifest.jim as any).selectors[selectorKey] = {
       dom: `#series-${strToId(seriesKey)}`,
-      json: `$.datasets[0].series[${seriesIndex}].description`
+      json: `$.jim.datasets[0].series[${seriesIndex}].description`
     };
   }
 
   private _renderBehaviors(): any[] {
     const behaviors: any[] = [];
-    if (isPastryType(this._manifest.datasets[0].representation.subtype)) {
-      const slices = this._data[this._seriesKeys[0]];
+    if (isPastryType(this._manifest.jim.datasets[0].representation.subtype)) {
+      const slices = this._data[Object.keys(this._data)[0]];
       slices.forEach((_slice, sliceIndex) => {
         behaviors.push({
           target: {
@@ -265,7 +186,7 @@ export class Jimerator {
         });
       });
     } else {
-      this._seriesKeys.forEach((seriesKey, seriesIndex) => {
+      Object.keys(this._data).forEach((seriesKey, seriesIndex) => {
         behaviors.push({
           target: {
             selector: `$.selectors.seriesSummary_${strToId(seriesKey)}`

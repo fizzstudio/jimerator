@@ -26,9 +26,9 @@ function testInstanceJim(jsonFilepath: string): void {
   try {
     const jimerator = new Jimerator(instance);
     jimerator.render();
-    console.log(instance.datasets[0].title, '\n', jimerator.jim)
+    console.log(instance.jim.datasets[0].title, '\n', jimerator.manifest)
     test(jsonFilepath, () => {
-      expect(jimerator.jim).toBeTruthy();
+      expect(jimerator.manifest).toBeTruthy();
     })
   } catch {
     console.log('err', instance.datasets[0].title);
