@@ -27,10 +27,28 @@ import { chartDataIsUnivalent, collectIndeps } from "./utils";
 /**
  * @public
  */
-export interface Selector {
+export interface DataSelector {
   dom: string | string[];
   json: string | string[];
 }
+
+/**
+ * @public
+ */
+export interface GroupSelector {
+  group: true;
+  name: string;
+  note?: string;
+  dom?: string;
+  members?: string[];
+}
+
+/**
+ * @public
+ */
+export type Selector = DataSelector | GroupSelector;
+
+type SelectorSet = Selector;
 
 // Helpers
 
@@ -50,6 +68,7 @@ export class Jimerator {
   private _data: AllSeriesData;
   private _indepKey: string;
   private _depKey: string;
+  private _seriesDatapointDoms: Record<string, string[]> = {};
 
   constructor(manifest: Manifest, externalData?: AllSeriesData) {
     this._manifest = manifest;
@@ -82,56 +101,121 @@ export class Jimerator {
     return this._manifest;
   }
 
-  private _addSelectorsPastry(selectors: Record<string, Selector>): void {
+  private _seriesKeys(): string[] {
+    const dataset = this._manifest.jim.datasets[0];
+    const manifestSeriesKeys = dataset.series
+      .map(series => series.key)
+      .filter(key => this._data[key]);
+    const extraSeriesKeys = Object.keys(this._data)
+      .filter(key => !manifestSeriesKeys.includes(key));
+    return [...manifestSeriesKeys, ...extraSeriesKeys];
+  }
+
+  private _seriesGroupKey(seriesKey: string): string {
+    return `seriesGroup_${strToId(seriesKey)}`;
+  }
+
+  private _trackSeriesDatapointDom(seriesKey: string, dom: string): void {
+    this._seriesDatapointDoms[seriesKey] ??= [];
+    this._seriesDatapointDoms[seriesKey].push(dom);
+  }
+
+  private _chartGroupName(): string {
+    const dataset = this._manifest.jim.datasets[0];
+    return dataset.description || dataset.title;
+  }
+
+  private _seriesGroupName(seriesKey: string): string {
+    const dataset = this._manifest.jim.datasets[0];
+    const series = dataset.series.find(s => s.key === seriesKey) as typeof dataset.series[number] & { description?: string } | undefined;
+    return series?.description || series?.label || seriesKey;
+  }
+
+  private _addChartHierarchyGroups(selectors: Record<string, SelectorSet>): void {
+    const seriesKeys = this._seriesKeys()
+      .filter(seriesKey => this._seriesDatapointDoms[seriesKey]?.length);
+    if (seriesKeys.length < 2) {
+      return;
+    }
+
+    const dataset = this._manifest.jim.datasets[0];
+    const members = seriesKeys.map(seriesKey => this._seriesGroupKey(seriesKey));
+    selectors.chartGroup = {
+      group: true,
+      name: this._chartGroupName(),
+      note: dataset.title,
+      members
+    };
+
+    for (const seriesKey of seriesKeys) {
+      selectors[this._seriesGroupKey(seriesKey)] = {
+        group: true,
+        name: this._seriesGroupName(seriesKey),
+        dom: this._seriesDatapointDoms[seriesKey].join(', ')
+      };
+    }
+  }
+
+  private _addSelectorsPastry(selectors: Record<string, SelectorSet>): void {
     const seriesKey = Object.keys(this._data)[0];
     this._data[seriesKey].forEach((datapoint, pointIndex) => {
       const indepSanitized = strToId(datapoint[this._indepKey]);
       const depSanitized = strToId(datapoint[this._depKey]);
-      selectors[`datapoint${pointIndex + 1}`] = {
-        dom: `#datapoint-${indepSanitized}_${depSanitized}_${strToId(seriesKey)}`,
+      const dom = `#datapoint-${indepSanitized}_${depSanitized}_${strToId(seriesKey)}`;
+      const selector: DataSelector = {
+        dom,
         json: `$.jim.datasets[0].series[0].records[${pointIndex}].description`
       };
+      selectors[`datapoint${pointIndex + 1}`] = selector;
+      this._trackSeriesDatapointDom(seriesKey, dom);
     });
   }
 
-  private _addSelectorsUnivalent(selectors: Record<string, Selector>): void {
+  private _addSelectorsUnivalent(selectors: Record<string, SelectorSet>): void {
     let datapointIndex = 1;
     // FIXME: Assumes at least 1 series in data
-    const indeps = collectIndeps(this._data[Object.keys(this._data)[0]], this._indepKey);
+    const indeps = Array.from(collectIndeps(this._data[Object.keys(this._data)[0]], this._indepKey));
     Object.keys(this._data).forEach((key, seriesIndex) => {
       indeps.forEach((indepValue, pointIndex) => {
-        selectors[`datapoint${datapointIndex}`] = {
-          "dom": `#datapoint-${strToId(indepValue)}_${strToId(key)}`,
+        const dom = `#datapoint-${strToId(indepValue)}_${strToId(key)}`;
+        const selector: DataSelector = {
+          dom,
           "json": [
             `$.jim.datasets[0].series[${seriesIndex}].key`,
             `$.jim.datasets[0].series[${seriesIndex}].records[${pointIndex}].*`
           ]
         };
+        selectors[`datapoint${datapointIndex}`] = selector;
+        this._trackSeriesDatapointDom(key, dom);
         datapointIndex++;
       })
     });
   }
 
-  private _addSelectorsMultivalent(selectors: Record<string, Selector>): void {
+  private _addSelectorsMultivalent(selectors: Record<string, SelectorSet>): void {
     let datapointIndex = 1;
     Object.keys(this._data).forEach((key, seriesIndex) => {
       this._data[key].forEach((datapoint, pointIndex) => {
         const indepSanitized = strToId(datapoint[this._indepKey]);
         const depSanitized = strToId(datapoint[this._depKey]);
-        selectors[`datapoint${datapointIndex}`] = {
-          dom: `#datapoint-${indepSanitized}_${depSanitized}_${strToId(key)}`,
+        const dom = `#datapoint-${indepSanitized}_${depSanitized}_${strToId(key)}`;
+        const selector: DataSelector = {
+          dom,
           json: [
             `$.jim.datasets[0].series[${seriesIndex}].key`,
             `$.jim.datasets[0].series[${seriesIndex}].records[${pointIndex}].*`
           ]
         };
+        selectors[`datapoint${datapointIndex}`] = selector;
+        this._trackSeriesDatapointDom(key, dom);
         datapointIndex++;
       })
     });
   }
 
-  private _renderSelectors(): Record<string, Selector> {
-    const selectors: Record<string, Selector> = {
+  private _renderSelectors(): Record<string, SelectorSet> {
+    this._seriesDatapointDoms = {};
+    const selectors: Record<string, SelectorSet> = {
       chartTitle: {
         dom: "#chart-title",
         json: "$.jim.datasets[0].title"
@@ -144,6 +228,7 @@ export class Jimerator {
     } else {
       this._addSelectorsMultivalent(selectors);
     }
+    this._addChartHierarchyGroups(selectors);
     return selectors;
   }
 
@@ -162,6 +247,10 @@ export class Jimerator {
       dom: `#series-${strToId(seriesKey)}`,
       json: `$.jim.datasets[0].series[${seriesIndex}].description`
     };
+    const groupSelector = (this._manifest.jim as any).selectors[this._seriesGroupKey(seriesKey)] as GroupSelector | undefined;
+    if (groupSelector?.group) {
+      groupSelector.name = summary;
+    }
   }
 
   private _renderBehaviors(): any[] {
