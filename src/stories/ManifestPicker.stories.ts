@@ -40,4 +40,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<ManifestPickerProps>;
 
-export const ManifestPicker: Story = { };
+export const ManifestPicker: Story = {
+  args: {
+    filename: "manifests/autogen/line-multi/line-multi-manifest-27.json"
+  }
+};

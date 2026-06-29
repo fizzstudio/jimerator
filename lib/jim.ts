@@ -18,8 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.*/
 
 // Imports
 
-import { AllSeriesData, strToId, Manifest,
-  isPastryType } from "@fizz/paramanifest";
+import { AllSeriesData, strToId, Manifest, isPastryType } from "@fizz/chartsignal-internal";
 import { chartDataIsUnivalent, collectIndeps } from "./utils";
 
 // Types

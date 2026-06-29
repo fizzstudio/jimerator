@@ -1,4 +1,4 @@
-import { AllSeriesData, DatapointManifest } from "@fizz/paramanifest";
+import { AllSeriesData, DatapointManifest } from "@fizz/chartsignal-internal";
 
 export function collectIndeps(data: DatapointManifest[], indepKey: string): Set<string> {
   return new Set(...data.map((datapoint) => datapoint.x));
