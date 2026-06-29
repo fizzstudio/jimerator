@@ -49,6 +49,7 @@ export interface GroupSelector {
 export type Selector = DataSelector | GroupSelector;
 
 type SelectorSet = Selector;
+type AxisOrientation = 'horiz' | 'vert';
 
 // Helpers
 
@@ -115,6 +116,40 @@ export class Jimerator {
     return `seriesGroup_${strToId(seriesKey)}`;
   }
 
+  private _jsonPathProperty(parentPath: string, key: string): string {
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      return `${parentPath}.${key}`;
+    }
+    const escaped = key.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return `${parentPath}['${escaped}']`;
+  }
+
+  private _facetPath(facetKey: string): string {
+    return this._jsonPathProperty('$.jim.datasets[0].facets', facetKey);
+  }
+
+  private _facetKeyForAxis(orientation: AxisOrientation): string | undefined {
+    const dataset = this._manifest.jim.datasets[0];
+    if (isPastryType(dataset.representation.subtype)) {
+      return undefined;
+    }
+
+    if (dataset.representation.subtype === 'bar') {
+      return orientation === 'horiz' ? this._depKey : this._indepKey;
+    }
+
+    const displayOrientation = orientation === 'horiz' ? 'horizontal' : 'vertical';
+    const displayOrientationShort = orientation === 'horiz' ? 'horiz' : 'vert';
+    const axisFacetEntry = Object.entries(dataset.facets).find(([_key, facet]) => {
+      const displayType = (facet as any).displayType;
+      return displayType?.type === 'axis'
+        && (displayType.orientation === displayOrientation
+          || displayType.orientation === displayOrientationShort);
+    });
+
+    return axisFacetEntry?.[0] ?? (orientation === 'horiz' ? this._indepKey : this._depKey);
+  }
+
   private _trackSeriesDatapointDom(seriesKey: string, dom: string): void {
     this._seriesDatapointDoms[seriesKey] ??= [];
     this._seriesDatapointDoms[seriesKey].push(dom);
@@ -152,6 +187,56 @@ export class Jimerator {
         group: true,
         name: this._seriesGroupName(seriesKey),
         dom: this._seriesDatapointDoms[seriesKey].join(', ')
+      };
+    }
+  }
+
+  private _addAxisSelectors(selectors: Record<string, SelectorSet>): void {
+    const dataset = this._manifest.jim.datasets[0];
+    const axisGroups: string[] = [];
+
+    for (const orientation of ['horiz', 'vert'] as const) {
+      const facetKey = this._facetKeyForAxis(orientation);
+      if (!facetKey) {
+        continue;
+      }
+
+      const facet = dataset.facets[facetKey];
+      const facetPath = this._facetPath(facetKey);
+      const axisName = `${orientation === 'horiz' ? 'Horizontal' : 'Vertical'} axis: ${facet.label}`;
+
+      selectors[`axis_${orientation}`] = {
+        dom: `#${orientation}-axis`,
+        json: facetPath
+      };
+      selectors[`axisTitle_${orientation}`] = {
+        dom: `#axis-title-${orientation}`,
+        json: `${facetPath}.label`
+      };
+      selectors[`axisLine_${orientation}`] = {
+        dom: `#${orientation}-axis-line`,
+        json: facetPath
+      };
+      selectors[`tickStrip_${orientation}`] = {
+        dom: `#${orientation}-axis-tick-strip`,
+        json: facetPath
+      };
+
+      const axisGroupKey = `axisGroup_${orientation}`;
+      selectors[axisGroupKey] = {
+        group: true,
+        name: axisName,
+        note: `Axis and labels for facet "${facetKey}"`,
+        dom: `#${orientation}-axis, #${orientation}-axis *`
+      };
+      axisGroups.push(axisGroupKey);
+    }
+
+    if (axisGroups.length > 0) {
+      selectors.axesGroup = {
+        group: true,
+        name: 'Axes',
+        members: axisGroups
       };
     }
   }
@@ -221,6 +306,7 @@ export class Jimerator {
         json: "$.jim.datasets[0].title"
       }
     }
+    this._addAxisSelectors(selectors);
     if (isPastryType(this._manifest.jim.datasets[0].representation.subtype)) {
       this._addSelectorsPastry(selectors);
     } else if (chartDataIsUnivalent(this._data, this._indepKey)) {
@@ -260,7 +346,7 @@ export class Jimerator {
       slices.forEach((_slice, sliceIndex) => {
         behaviors.push({
           target: {
-            selector: `$.selectors.datapoint${sliceIndex + 1}`
+            selector: `$.jim.selectors.datapoint${sliceIndex + 1}`
           },
           enter: {
             haptic: {
@@ -278,7 +364,7 @@ export class Jimerator {
       Object.keys(this._data).forEach((seriesKey, seriesIndex) => {
         behaviors.push({
           target: {
-            selector: `$.selectors.seriesSummary_${strToId(seriesKey)}`
+            selector: `$.jim.selectors.seriesSummary_${strToId(seriesKey)}`
           },
           enter: {
             haptic: {
