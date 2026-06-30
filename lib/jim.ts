@@ -116,6 +116,24 @@ export class Jimerator {
     return `seriesGroup_${strToId(seriesKey)}`;
   }
 
+  private _legendItemId(seriesKey: string, datapointIndex?: number): string {
+    const seriesId = strToId(seriesKey);
+    return datapointIndex === undefined ? seriesId : `${seriesId}-${datapointIndex + 1}`;
+  }
+
+  private _legendItemGroupKey(seriesKey: string, datapointIndex?: number): string {
+    return `legendItemGroup_${this._legendItemId(seriesKey, datapointIndex)}`;
+  }
+
+  private _legendItemDoms(seriesKey: string, datapointIndex?: number): string[] {
+    const legendItemId = this._legendItemId(seriesKey, datapointIndex);
+    return [
+      `#legend-marker-${legendItemId}`,
+      `#legend-symbol-${legendItemId}`,
+      `#legend-label-${legendItemId}`
+    ];
+  }
+
   private _jsonPathProperty(parentPath: string, key: string): string {
     if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
       return `${parentPath}.${key}`;
@@ -183,10 +201,92 @@ export class Jimerator {
     };
 
     for (const seriesKey of seriesKeys) {
+      const seriesDom = [
+        ...this._seriesDatapointDoms[seriesKey],
+        ...this._legendItemDoms(seriesKey)
+      ];
       selectors[this._seriesGroupKey(seriesKey)] = {
         group: true,
         name: this._seriesGroupName(seriesKey),
-        dom: this._seriesDatapointDoms[seriesKey].join(', ')
+        dom: seriesDom.join(', ')
+      };
+    }
+  }
+
+  private _addLegendSelectors(selectors: Record<string, SelectorSet>): void {
+    const dataset = this._manifest.jim.datasets[0];
+    const legendGroups: string[] = [];
+
+    if (isPastryType(dataset.representation.subtype)) {
+      const seriesKey = Object.keys(this._data)[0];
+      const seriesIndex = dataset.series.findIndex(series => series.key === seriesKey);
+      if (seriesIndex === -1) {
+        return;
+      }
+
+      this._data[seriesKey].forEach((_datapoint, pointIndex) => {
+        const legendItemId = this._legendItemId(seriesKey, pointIndex);
+        const recordPath = `$.jim.datasets[0].series[${seriesIndex}].records[${pointIndex}]`;
+        selectors[`legendMarker_${legendItemId}`] = {
+          dom: `#legend-marker-${legendItemId}`,
+          json: `${recordPath}.*`
+        };
+        selectors[`legendSymbol_${legendItemId}`] = {
+          dom: `#legend-symbol-${legendItemId}`,
+          json: `${recordPath}.*`
+        };
+        selectors[`legendLabel_${legendItemId}`] = {
+          dom: `#legend-label-${legendItemId}`,
+          json: `${recordPath}.*`
+        };
+
+        const groupKey = this._legendItemGroupKey(seriesKey, pointIndex);
+        selectors[groupKey] = {
+          group: true,
+          name: `${_datapoint[this._indepKey]} legend item`,
+          dom: this._legendItemDoms(seriesKey, pointIndex).join(', ')
+        };
+        legendGroups.push(groupKey);
+      });
+    } else {
+      for (const seriesKey of this._seriesKeys()) {
+        const seriesIndex = dataset.series.findIndex(series => series.key === seriesKey);
+        if (seriesIndex === -1) {
+          continue;
+        }
+
+        const series = dataset.series[seriesIndex] as typeof dataset.series[number] & { label?: string };
+        const legendItemId = this._legendItemId(seriesKey);
+        const seriesPath = `$.jim.datasets[0].series[${seriesIndex}]`;
+        const labelPath = series.label ? `${seriesPath}.label` : `${seriesPath}.key`;
+        selectors[`legendMarker_${legendItemId}`] = {
+          dom: `#legend-marker-${legendItemId}`,
+          json: `${seriesPath}.key`
+        };
+        selectors[`legendSymbol_${legendItemId}`] = {
+          dom: `#legend-symbol-${legendItemId}`,
+          json: `${seriesPath}.key`
+        };
+        selectors[`legendLabel_${legendItemId}`] = {
+          dom: `#legend-label-${legendItemId}`,
+          json: labelPath
+        };
+
+        const groupKey = this._legendItemGroupKey(seriesKey);
+        selectors[groupKey] = {
+          group: true,
+          name: `${this._seriesGroupName(seriesKey)} legend item`,
+          dom: this._legendItemDoms(seriesKey).join(', ')
+        };
+        legendGroups.push(groupKey);
+      }
+    }
+
+    if (legendGroups.length > 0) {
+      selectors.legendGroup = {
+        group: true,
+        name: 'Legend',
+        members: legendGroups
       };
     }
   }
@@ -314,6 +414,7 @@ export class Jimerator {
     } else {
       this._addSelectorsMultivalent(selectors);
     }
+    this._addLegendSelectors(selectors);
     this._addChartHierarchyGroups(selectors);
     return selectors;
   }
