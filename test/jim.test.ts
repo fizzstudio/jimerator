@@ -219,12 +219,24 @@ describe('Jimerator group selectors', () => {
     expect(northGroup).toEqual({
       group: true,
       name: 'North region series description.',
-      dom: [selectors.datapoint1.dom, selectors.datapoint2.dom].join(', ')
+      dom: [
+        selectors.datapoint1.dom,
+        selectors.datapoint2.dom,
+        '#legend-marker-north_region',
+        '#legend-symbol-north_region',
+        '#legend-label-north_region'
+      ].join(', ')
     });
     expect(southGroup).toEqual({
       group: true,
       name: 'South',
-      dom: [selectors.datapoint3.dom, selectors.datapoint4.dom].join(', ')
+      dom: [
+        selectors.datapoint3.dom,
+        selectors.datapoint4.dom,
+        '#legend-marker-south_region',
+        '#legend-symbol-south_region',
+        '#legend-label-south_region'
+      ].join(', ')
     });
   });
 
@@ -246,6 +258,64 @@ describe('Jimerator group selectors', () => {
 
     expect(selectors.chartGroup).toBeUndefined();
     expect(selectors[`seriesGroup_${strToId('North Region')}`]).toBeUndefined();
+  });
+});
+
+describe('Jimerator legend selectors', () => {
+  test('adds legend selectors and groups for series legend items', () => {
+    const jimerator = new Jimerator(multiSeriesManifest());
+    const selectors = (jimerator.manifest.jim as any).selectors;
+
+    expect(selectors.legendMarker_north_region as DataSelector).toEqual({
+      dom: '#legend-marker-north_region',
+      json: '$.jim.datasets[0].series[0].key'
+    });
+    expect(selectors.legendSymbol_north_region as DataSelector).toEqual({
+      dom: '#legend-symbol-north_region',
+      json: '$.jim.datasets[0].series[0].key'
+    });
+    expect(selectors.legendLabel_north_region as DataSelector).toEqual({
+      dom: '#legend-label-north_region',
+      json: '$.jim.datasets[0].series[0].label'
+    });
+    expect(selectors.legendItemGroup_north_region as GroupSelector).toEqual({
+      group: true,
+      name: 'North region series description. legend item',
+      dom: '#legend-marker-north_region, #legend-symbol-north_region, #legend-label-north_region'
+    });
+    expect(selectors.legendGroup as GroupSelector).toEqual({
+      group: true,
+      name: 'Legend',
+      members: ['legendItemGroup_north_region', 'legendItemGroup_south_region']
+    });
+  });
+
+  test('adds legend selectors and groups for pastry slice legend items', () => {
+    const jimerator = new Jimerator(pastryManifest());
+    const selectors = (jimerator.manifest.jim as any).selectors;
+
+    expect(selectors['legendMarker_matter-1'] as DataSelector).toEqual({
+      dom: '#legend-marker-matter-1',
+      json: '$.jim.datasets[0].series[0].records[0].*'
+    });
+    expect(selectors['legendSymbol_matter-1'] as DataSelector).toEqual({
+      dom: '#legend-symbol-matter-1',
+      json: '$.jim.datasets[0].series[0].records[0].*'
+    });
+    expect(selectors['legendLabel_matter-1'] as DataSelector).toEqual({
+      dom: '#legend-label-matter-1',
+      json: '$.jim.datasets[0].series[0].records[0].*'
+    });
+    expect(selectors['legendItemGroup_matter-1'] as GroupSelector).toEqual({
+      group: true,
+      name: 'Dark matter legend item',
+      dom: '#legend-marker-matter-1, #legend-symbol-matter-1, #legend-label-matter-1'
+    });
+    expect(selectors.legendGroup as GroupSelector).toEqual({
+      group: true,
+      name: 'Legend',
+      members: ['legendItemGroup_matter-1', 'legendItemGroup_matter-2']
+    });
   });
 });
 
