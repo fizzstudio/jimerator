@@ -117,6 +117,59 @@ function pastryManifest(): Manifest {
   };
 }
 
+function multiDatasetManifest(): Manifest {
+  const manifest = multiSeriesManifest();
+  manifest.jim.datasets.push({
+    representation: {
+      type: 'chart',
+      subtype: 'bar'
+    },
+    title: 'Enrollment by quarter',
+    description: 'Full chart description for enrollment by quarter.',
+    facets: {
+      x: {
+        label: 'Quarter',
+        variableType: 'independent',
+        measure: 'ordinal',
+        datatype: 'string',
+        displayType: {
+          type: 'axis',
+          orientation: 'vertical'
+        }
+      },
+      y: {
+        label: 'Enrollment',
+        variableType: 'dependent',
+        measure: 'ratio',
+        datatype: 'number',
+        displayType: {
+          type: 'axis',
+          orientation: 'horizontal'
+        }
+      }
+    },
+    series: [
+      {
+        key: 'North Region',
+        label: 'North enrollment',
+        records: [
+          { x: 'Q1', y: '30' },
+          { x: 'Q2', y: '34' }
+        ]
+      },
+      {
+        key: 'South Region',
+        label: 'South enrollment',
+        records: [
+          { x: 'Q1', y: '25' },
+          { x: 'Q2', y: '31' }
+        ]
+      }
+    ]
+  });
+  return manifest;
+}
+
 describe('Jimerator axis selectors', () => {
   test('adds selectors and groups for plane chart axes', () => {
     const jimerator = new Jimerator(multiSeriesManifest());
@@ -186,6 +239,47 @@ describe('Jimerator axis selectors', () => {
     expect(selectors.axis_vert).toBeUndefined();
     expect(selectors.axesGroup).toBeUndefined();
   });
+
+  test('adds dataset-scoped datapoint selectors for multi-dataset manifests', () => {
+    const jimerator = new Jimerator(multiDatasetManifest());
+    const selectors = (jimerator.manifest.jim as any).selectors;
+
+    expect(selectors.chartTitle as DataSelector).toEqual({
+      dom: '#chart-title',
+      json: '$.jim.datasets[0].title'
+    });
+    expect(selectors.dataset0_chartTitle).toBeUndefined();
+    expect(selectors.dataset1_chartTitle).toBeUndefined();
+
+    expect(selectors.axis_horiz.json).toBe('$.jim.datasets[0].facets.x');
+    expect(selectors.dataset0_axis_horiz).toBeUndefined();
+    expect(selectors.dataset1_axis_horiz).toBeUndefined();
+
+    expect(selectors.dataset0_datapoint1 as DataSelector).toEqual({
+      dom: '#dataset-0-datapoint-q1_north_region',
+      json: [
+        '$.jim.datasets[0].series[0].key',
+        '$.jim.datasets[0].series[0].records[0].*'
+      ]
+    });
+    expect(selectors.datapoint1).toBe(selectors.dataset0_datapoint1);
+    expect(selectors.dataset1_datapoint1 as DataSelector).toEqual({
+      dom: '#dataset-1-datapoint-q1_north_region',
+      json: [
+        '$.jim.datasets[1].series[0].key',
+        '$.jim.datasets[1].series[0].records[0].*'
+      ]
+    });
+    expect(selectors.dataset0_datapoint1.dom).not.toBe(selectors.dataset1_datapoint1.dom);
+
+    expect(selectors.legendMarker_north_region as DataSelector).toEqual({
+      dom: '#legend-marker-north_region',
+      json: '$.jim.datasets[0].series[0].key'
+    });
+    expect(selectors.dataset1_legendMarker_north_region).toBeUndefined();
+    expect(selectors.datasetGroup0).toBeUndefined();
+    expect(selectors.datasetGroup1).toBeUndefined();
+  });
 });
 
 describe('Jimerator group selectors', () => {
@@ -250,6 +344,66 @@ describe('Jimerator group selectors', () => {
     expect(selectors[southGroupKey].name).toBe('Generated South region summary.');
     expect((jimerator.manifest.jim.datasets[0].series[1] as any).description)
       .toBe('Generated South region summary.');
+  });
+
+  test('adds a generated series summary to a selected dataset', () => {
+    const jimerator = new Jimerator(multiDatasetManifest());
+    const selectors = (jimerator.manifest.jim as any).selectors;
+    const northGroupKey = `seriesGroup_${strToId('North Region')}`;
+
+    jimerator.addSeriesSummary(1, 'North Region', 'Generated enrollment summary.');
+
+    expect((jimerator.manifest.jim.datasets[0].series[0] as any).description)
+      .toBe('North region series description.');
+    expect((jimerator.manifest.jim.datasets[1].series[0] as any).description)
+      .toBe('Generated enrollment summary.');
+    expect(selectors.dataset1_seriesSummary_north_region as DataSelector).toEqual({
+      dom: '#dataset-1-series-north_region',
+      json: '$.jim.datasets[1].series[0].description'
+    });
+    expect(selectors.seriesSummary_north_region).toBeUndefined();
+    expect((selectors[northGroupKey] as GroupSelector).name)
+      .toBe('North region series description.');
+  });
+
+  test('adds a generated series summary to the first dataset in a multi-dataset manifest', () => {
+    const jimerator = new Jimerator(multiDatasetManifest());
+    const selectors = (jimerator.manifest.jim as any).selectors;
+    const southGroupKey = `seriesGroup_${strToId('South Region')}`;
+
+    jimerator.addSeriesSummary(0, 'South Region', 'Generated first dataset summary.');
+
+    expect((jimerator.manifest.jim.datasets[0].series[1] as any).description)
+      .toBe('Generated first dataset summary.');
+    expect((jimerator.manifest.jim.datasets[1].series[1] as any).description)
+      .toBeUndefined();
+    expect(selectors.dataset0_seriesSummary_south_region as DataSelector).toEqual({
+      dom: '#dataset-0-series-south_region',
+      json: '$.jim.datasets[0].series[1].description'
+    });
+    expect(selectors.seriesSummary_south_region).toBe(selectors.dataset0_seriesSummary_south_region);
+    expect((selectors[southGroupKey] as GroupSelector).name)
+      .toBe('Generated first dataset summary.');
+  });
+
+  test('adds a generated series summary to a second-dataset-only series', () => {
+    const manifest = multiDatasetManifest();
+    manifest.jim.datasets[1].series[0].key = 'Enrollment North';
+    manifest.jim.datasets[1].series[1].key = 'Enrollment South';
+    const jimerator = new Jimerator(manifest);
+    const selectors = (jimerator.manifest.jim as any).selectors;
+
+    expect(() => jimerator.addSeriesSummary(1, 'Enrollment North', 'Generated enrollment summary.'))
+      .not.toThrow();
+
+    expect((jimerator.manifest.jim.datasets[1].series[0] as any).description)
+      .toBe('Generated enrollment summary.');
+    expect(selectors.dataset1_seriesSummary_enrollment_north as DataSelector).toEqual({
+      dom: '#dataset-1-series-enrollment_north',
+      json: '$.jim.datasets[1].series[0].description'
+    });
+    expect(selectors.seriesGroup_enrollment_north).toBeUndefined();
+    expect(selectors.legendMarker_enrollment_north).toBeUndefined();
   });
 
   test('does not add chart hierarchy groups for a single-series chart', () => {
@@ -319,6 +473,23 @@ describe('Jimerator legend selectors', () => {
   });
 });
 
+describe('Jimerator selector conformance', () => {
+  test('emits selector-string keys with dom and json mappings for data selectors', () => {
+    const jimerator = new Jimerator(multiDatasetManifest());
+    jimerator.addSeriesSummary(1, 'North Region', 'Generated enrollment summary.');
+    const selectors = (jimerator.manifest.jim as any).selectors;
+
+    for (const [selectorKey, selector] of Object.entries(selectors) as [string, any][]) {
+      expect(selectorKey).toMatch(/^[A-Za-z0-9_-]+$/);
+      if (selector.group) {
+        continue;
+      }
+      expect(selector.dom).toBeDefined();
+      expect(selector.json).toBeDefined();
+    }
+  });
+});
+
 describe('Jimerator behavior selector references', () => {
   test('uses enveloped selector paths for plane chart behaviors', () => {
     const jimerator = new Jimerator(multiSeriesManifest());
@@ -334,5 +505,17 @@ describe('Jimerator behavior selector references', () => {
 
     expect(behaviors[0].target.selector).toBe('$.jim.selectors.datapoint1');
     expect(behaviors[1].target.selector).toBe('$.jim.selectors.datapoint2');
+  });
+
+  test('uses dataset-scoped selector paths for multi-dataset behaviors', () => {
+    const jimerator = new Jimerator(multiDatasetManifest());
+    const behaviors = (jimerator.manifest.jim as any).behaviors;
+
+    expect(behaviors.map((behavior: any) => behavior.target.selector)).toEqual([
+      '$.jim.selectors.dataset0_seriesSummary_north_region',
+      '$.jim.selectors.dataset0_seriesSummary_south_region',
+      '$.jim.selectors.dataset1_seriesSummary_north_region',
+      '$.jim.selectors.dataset1_seriesSummary_south_region'
+    ]);
   });
 });

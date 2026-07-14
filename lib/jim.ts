@@ -67,12 +67,14 @@ export class Jimerator {
 
   private _manifest: Manifest;
   private _data: AllSeriesData;
+  private _externalData?: AllSeriesData;
   private _indepKey: string;
   private _depKey: string;
   private _seriesDatapointDoms: Record<string, string[]> = {};
 
   constructor(manifest: Manifest, externalData?: AllSeriesData) {
     this._manifest = manifest;
+    this._externalData = externalData;
     const dataset = this._manifest.jim.datasets[0];
     this._indepKey = Object.entries(dataset.facets)
       .filter(([_key, facet]) => facet.variableType === 'independent')
@@ -89,7 +91,16 @@ export class Jimerator {
         this._data[series.key] = series.records!;
       }
     } else if (externalData) {
-      this._data = externalData;
+      if (this._manifest.jim.datasets.length === 1) {
+        this._data = externalData;
+      } else {
+        this._data = {};
+        for (const series of dataset.series) {
+          if (externalData[series.key]) {
+            this._data[series.key] = externalData[series.key];
+          }
+        }
+      }
     } else {
       throw new JimError('JIM cannot be created without external or inline chart data');
     }
@@ -100,6 +111,71 @@ export class Jimerator {
 
   get manifest() {
     return this._manifest;
+  }
+
+  private _isMultiDataset(): boolean {
+    return this._manifest.jim.datasets.length > 1;
+  }
+
+  private _datasetPath(datasetIndex: number): string {
+    return `$.jim.datasets[${datasetIndex}]`;
+  }
+
+  private _datasetScopedKey(datasetIndex: number, key: string): string {
+    return this._isMultiDataset() ? `dataset${datasetIndex}_${key}` : key;
+  }
+
+  private _datasetScopedDom(datasetIndex: number, id: string): string {
+    return this._isMultiDataset() ? `#dataset-${datasetIndex}-${id}` : `#${id}`;
+  }
+
+  private _facetKeysForDataset(datasetIndex: number): { indepKey: string; depKey: string } {
+    const dataset = this._manifest.jim.datasets[datasetIndex];
+    if (!dataset) {
+      throw new JimError(`Dataset index ${datasetIndex} not found`);
+    }
+    const indepKey = Object.entries(dataset.facets)
+      .filter(([_key, facet]) => facet.variableType === 'independent')
+      .map(([key, _facet]) => key)[0]; // Assumes exactly 1 independent facet
+    const depKey = Object.entries(dataset.facets)
+      .filter(([_key, facet]) => facet.variableType === 'dependent')
+      .map(([key, _facet]) => key)[0]; // Assumes exactly 1 dependent facet
+    if (indepKey === undefined || depKey === undefined) {
+      throw new JimError(`Dataset ${datasetIndex} must have exactly one independent and one dependent facet`);
+    }
+    return { indepKey, depKey };
+  }
+
+  private _dataForDataset(datasetIndex: number): AllSeriesData {
+    if (datasetIndex === 0) {
+      return this._data;
+    }
+
+    const dataset = this._manifest.jim.datasets[datasetIndex];
+    if (!dataset) {
+      throw new JimError(`Dataset index ${datasetIndex} not found`);
+    }
+    if (!dataset.href) {
+      const data: AllSeriesData = {};
+      for (const series of dataset.series) {
+        data[series.key] = series.records!;
+      }
+      return data;
+    }
+    if (!this._externalData) {
+      throw new JimError('JIM cannot be created without external or inline chart data');
+    }
+
+    const data: AllSeriesData = {};
+    for (const series of dataset.series) {
+      if (this._externalData[series.key]) {
+        data[series.key] = this._externalData[series.key];
+      }
+    }
+    if (Object.keys(data).length === 0) {
+      throw new JimError(`JIM cannot be created without external or inline chart data for dataset ${datasetIndex}`);
+    }
+    return data;
   }
 
   private _seriesKeys(): string[] {
@@ -341,6 +417,28 @@ export class Jimerator {
     }
   }
 
+  private _scopeDomToDataset(dom: string, datasetIndex: number): string {
+    return this._datasetScopedDom(datasetIndex, dom.replace(/^#/, ''));
+  }
+
+  private _scopeFirstDatasetDatapointSelectors(selectors: Record<string, SelectorSet>): void {
+    for (const selectorKey of Object.keys(selectors)) {
+      if (!/^datapoint\d+$/.test(selectorKey)) {
+        continue;
+      }
+      const selector = selectors[selectorKey] as DataSelector;
+      if (typeof selector.dom === 'string') {
+        selector.dom = this._scopeDomToDataset(selector.dom, 0);
+      }
+      selectors[`dataset0_${selectorKey}`] = selector;
+    }
+
+    for (const seriesKey of Object.keys(this._seriesDatapointDoms)) {
+      this._seriesDatapointDoms[seriesKey] = this._seriesDatapointDoms[seriesKey]
+        .map(dom => this._scopeDomToDataset(dom, 0));
+    }
+  }
+
   private _addSelectorsPastry(selectors: Record<string, SelectorSet>): void {
     const seriesKey = Object.keys(this._data)[0];
     this._data[seriesKey].forEach((datapoint, pointIndex) => {
@@ -398,6 +496,45 @@ export class Jimerator {
     });
   }
 
+  private _addDatasetDatapointSelectors(selectors: Record<string, SelectorSet>, datasetIndex: number): void {
+    const dataset = this._manifest.jim.datasets[datasetIndex];
+    const data = this._dataForDataset(datasetIndex);
+    const { indepKey, depKey } = this._facetKeysForDataset(datasetIndex);
+    const datasetSelectors: Record<string, SelectorSet> = {};
+    const originalData = this._data;
+    const originalIndepKey = this._indepKey;
+    const originalDepKey = this._depKey;
+    const originalSeriesDatapointDoms = this._seriesDatapointDoms;
+
+    this._data = data;
+    this._indepKey = indepKey;
+    this._depKey = depKey;
+    this._seriesDatapointDoms = {};
+    try {
+      if (isPastryType(dataset.representation.subtype)) {
+        this._addSelectorsPastry(datasetSelectors);
+      } else if (chartDataIsUnivalent(data, indepKey)) {
+        this._addSelectorsUnivalent(datasetSelectors);
+      } else {
+        this._addSelectorsMultivalent(datasetSelectors);
+      }
+    } finally {
+      this._data = originalData;
+      this._indepKey = originalIndepKey;
+      this._depKey = originalDepKey;
+      this._seriesDatapointDoms = originalSeriesDatapointDoms;
+    }
+
+    const scopeJson = (json: string | string[]) => Array.isArray(json)
+      ? json.map(path => path.replace('$.jim.datasets[0]', this._datasetPath(datasetIndex)))
+      : json.replace('$.jim.datasets[0]', this._datasetPath(datasetIndex));
+    for (const [selectorKey, selector] of Object.entries(datasetSelectors) as [string, DataSelector][]) {
+      selector.dom = this._scopeDomToDataset(selector.dom as string, datasetIndex);
+      selector.json = scopeJson(selector.json);
+      selectors[this._datasetScopedKey(datasetIndex, selectorKey)] = selector;
+    }
+  }
+
   private _renderSelectors(): Record<string, SelectorSet> {
     this._seriesDatapointDoms = {};
     const selectors: Record<string, SelectorSet> = {
@@ -414,34 +551,104 @@ export class Jimerator {
     } else {
       this._addSelectorsMultivalent(selectors);
     }
+    if (this._isMultiDataset()) {
+      this._scopeFirstDatasetDatapointSelectors(selectors);
+    }
+    for (let datasetIndex = 1; datasetIndex < this._manifest.jim.datasets.length; datasetIndex++) {
+      this._addDatasetDatapointSelectors(selectors, datasetIndex);
+    }
     this._addLegendSelectors(selectors);
     this._addChartHierarchyGroups(selectors);
     return selectors;
   }
 
-  public addSliceSummary(sliceIndex: number, summary: string) {
-    this._manifest.jim.datasets[0].series[0].records![sliceIndex].description = summary;
+  public addSliceSummary(sliceIndex: number, summary: string): void;
+  public addSliceSummary(datasetIndex: number, sliceIndex: number, summary: string): void;
+  public addSliceSummary(datasetIndexOrSliceIndex: number, sliceIndexOrSummary: number | string, maybeSummary?: string): void {
+    const datasetIndex = maybeSummary === undefined ? 0 : datasetIndexOrSliceIndex;
+    const sliceIndex = maybeSummary === undefined ? datasetIndexOrSliceIndex : sliceIndexOrSummary as number;
+    const summary = maybeSummary === undefined ? sliceIndexOrSummary as string : maybeSummary;
+    this._manifest.jim.datasets[datasetIndex].series[0].records![sliceIndex].description = summary;
   }
 
-  public addSeriesSummary(seriesKey: string, summary: string) {
-    const seriesIndex = this._manifest.jim.datasets[0].series.findIndex(s => s.key === seriesKey);
-    if (seriesIndex === -1) {
-      throw new JimError(`Series key "${seriesKey}" not found`);
+  public addSeriesSummary(seriesKey: string, summary: string): void;
+  public addSeriesSummary(datasetIndex: number, seriesKey: string, summary: string): void;
+  public addSeriesSummary(datasetIndexOrSeriesKey: number | string, seriesKeyOrSummary: string, maybeSummary?: string): void {
+    const datasetIndex = typeof datasetIndexOrSeriesKey === 'number' ? datasetIndexOrSeriesKey : 0;
+    const seriesKey = typeof datasetIndexOrSeriesKey === 'number' ? seriesKeyOrSummary : datasetIndexOrSeriesKey;
+    const summary = typeof datasetIndexOrSeriesKey === 'number' ? maybeSummary! : seriesKeyOrSummary;
+    const dataset = this._manifest.jim.datasets[datasetIndex];
+    if (!dataset) {
+      throw new JimError(`Dataset index ${datasetIndex} not found`);
     }
-    (this._manifest.jim.datasets[0].series[seriesIndex] as any).description = summary;
-    const selectorKey = `seriesSummary_${strToId(seriesKey)}`;
+    const seriesIndex = dataset.series.findIndex(s => s.key === seriesKey);
+    if (seriesIndex === -1) {
+      throw new JimError(`Series key "${seriesKey}" not found in dataset ${datasetIndex}`);
+    }
+    (dataset.series[seriesIndex] as any).description = summary;
+    const selectorKey = this._datasetScopedKey(datasetIndex, `seriesSummary_${strToId(seriesKey)}`);
     (this._manifest.jim as any).selectors[selectorKey] = {
-      dom: `#series-${strToId(seriesKey)}`,
-      json: `$.jim.datasets[0].series[${seriesIndex}].description`
+      dom: this._datasetScopedDom(datasetIndex, `series-${strToId(seriesKey)}`),
+      json: `${this._datasetPath(datasetIndex)}.series[${seriesIndex}].description`
     };
+    if (this._isMultiDataset() && datasetIndex === 0) {
+      (this._manifest.jim as any).selectors[`seriesSummary_${strToId(seriesKey)}`] =
+        (this._manifest.jim as any).selectors[selectorKey];
+    }
     const groupSelector = (this._manifest.jim as any).selectors[this._seriesGroupKey(seriesKey)] as GroupSelector | undefined;
-    if (groupSelector?.group) {
+    if (datasetIndex === 0 && groupSelector?.group) {
       groupSelector.name = summary;
     }
   }
 
   private _renderBehaviors(): any[] {
     const behaviors: any[] = [];
+    if (this._isMultiDataset()) {
+      for (let datasetIndex = 0; datasetIndex < this._manifest.jim.datasets.length; datasetIndex++) {
+        const dataset = this._manifest.jim.datasets[datasetIndex];
+        const data = this._dataForDataset(datasetIndex);
+        if (isPastryType(dataset.representation.subtype)) {
+          const slices = data[Object.keys(data)[0]] ?? [];
+          slices.forEach((_slice, sliceIndex) => {
+            behaviors.push({
+              target: {
+                selector: `$.jim.selectors.${this._datasetScopedKey(datasetIndex, `datapoint${sliceIndex + 1}`)}`
+              },
+              enter: {
+                haptic: {
+                  durations: [0, 125, 125, 125, 125, 125, 125, 125],
+                  repeatInterval: 125
+                },
+                audio: {
+                  earcon: "PewPew",
+                  repeat: "none"
+                }
+              }
+            });
+          });
+        } else {
+          Object.keys(data).forEach((seriesKey) => {
+            behaviors.push({
+              target: {
+                selector: `$.jim.selectors.${this._datasetScopedKey(datasetIndex, `seriesSummary_${strToId(seriesKey)}`)}`
+              },
+              enter: {
+                haptic: {
+                  durations: [0, 125, 125, 125, 125, 125, 125, 125],
+                  repeatInterval: 125
+                },
+                audio: {
+                  earcon: "PewPew",
+                  repeat: "none"
+                }
+              }
+            });
+          });
+        }
+      }
+      return behaviors;
+    }
+
     if (isPastryType(this._manifest.jim.datasets[0].representation.subtype)) {
       const slices = this._data[Object.keys(this._data)[0]];
       slices.forEach((_slice, sliceIndex) => {
