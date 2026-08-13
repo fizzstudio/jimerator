@@ -19,4 +19,4 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.*/
  * @module @fizz/jimerator
  */
 
-export { Jimerator, type Selector } from './jim';
+export { Jimerator, type DataSelector, type GroupSelector, type Selector } from './jim';
