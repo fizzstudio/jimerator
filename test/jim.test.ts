@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { strToId, type Manifest } from '@fizz/paramanifest';
+import { strToId, type Manifest } from '@fizz/chartsignal-internal';
 import { Jimerator, type DataSelector, type GroupSelector } from '../lib';
 
 function multiSeriesManifest(): Manifest {
