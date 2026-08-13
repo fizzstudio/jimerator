@@ -18,8 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.*/
 
 // Imports
 
-import { AllSeriesData, strToId, Manifest,
-  isPastryType } from "@fizz/paramanifest";
+import { AllSeriesData, strToId, Manifest, isPastryType } from "@fizz/chartsignal-internal";
 import { chartDataIsUnivalent, collectIndeps } from "./utils";
 
 // Types
@@ -104,9 +103,9 @@ export class Jimerator {
     } else {
       throw new JimError('JIM cannot be created without external or inline chart data');
     }
-    (this._manifest.jim as any).selectors = this._renderSelectors();
-    (this._manifest.jim as any).behaviors = this._renderBehaviors();
-    (this._manifest.jim as any).version = { jim: '0.4.0' };
+    this._manifest.jim.selectors = this._renderSelectors();
+    this._manifest.jim.behaviors = this._renderBehaviors();
+    this._manifest.jim.version = { jim: '0.4.0' };
   }
 
   get manifest() {

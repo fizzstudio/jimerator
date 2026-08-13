@@ -18,7 +18,7 @@ import { html, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 // import { type Manifest } from '../../types/manifest'; May be needed for non-specific
-import { ManifestValidator, ValidateOutput } from '../../lib'; // Specific
+import { ManifestValidator, ValidateOutput } from '@fizz/chartsignal-internal'; // Specific
 import { Json } from '@hyperjump/json-pointer';
 
 @customElement('manifest-picker')
@@ -37,7 +37,7 @@ export class ManifestPicker extends LitElement {
     const filePath = NODE_PREFIX + this.filename;
     const manifestRaw = await fetch(filePath);
     this.manifest = await manifestRaw.json() as Json; // Specific, otherwise as Manifest;
-    this.validationResult = await this.validator.validate(this.manifest);
+    this.validationResult = await this.validator.validateManifest(this.manifest);
     this.requestUpdate();
   }
 
@@ -52,7 +52,7 @@ export class ManifestPicker extends LitElement {
   protected async willUpdate(changedProperties: PropertyValues) {
     console.log('MOCK WILL UPDATE');
     for (const [k, v] of changedProperties.entries()) {
-      console.log(`- ${k.toString()}:`, v, '->', this[k]);
+      //console.log(`- ${k.toString()}:`, v, '->', this[k]);
     }
     if (changedProperties.has('filename') && this.filename) {
       console.log('LOADING MANIFEST');
