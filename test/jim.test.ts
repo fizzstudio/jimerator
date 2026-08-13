@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import fs from 'node:fs';
 import { Jimerator } from '../lib';
-import { Manifest } from '@fizz/paramanifest';
+import { Manifest } from '@fizz/chartsignal-internal';
 
 const TEST_MANIFEST_DIR = './node_modules/@fizz/chart-data/data/manifests';
 
@@ -25,18 +25,17 @@ function testInstanceJim(jsonFilepath: string): void {
   const instance = JSON.parse(rawInstance) as Manifest;
   try {
     const jimerator = new Jimerator(instance);
-    jimerator.render();
     console.log(instance.jim.datasets[0].title, '\n', jimerator.manifest)
     test(jsonFilepath, () => {
       expect(jimerator.manifest).toBeTruthy();
     })
   } catch {
-    console.log('err', instance.datasets[0].title);
+    console.log('err', instance.jim.datasets[0].title);
   }
 }
 
-/*for (const filename of MANIFEST_TEST_FILE_PATHS) {
+for (const filename of MANIFEST_TEST_FILE_PATHS) {
   testInstanceJim(filename);
-}*/
+}
 
-testInstanceJim(TEST_MANIFEST_DIR + '/pie-manifest-dark-matter.json')
+//testInstanceJim(TEST_MANIFEST_DIR + '/pie-manifest-dark-matter.json')
