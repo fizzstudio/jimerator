@@ -68,6 +68,6 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@fizz/chartsignal-internal": "^0.1.3"
+    "@fizz/chartsignal-internal": "^0.1.6-alpha.1"
   }
 }
